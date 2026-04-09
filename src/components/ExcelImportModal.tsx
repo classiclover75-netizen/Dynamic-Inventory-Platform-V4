@@ -33,6 +33,7 @@ interface ExcelImportModalProps {
 export const ExcelImportModal = ({ isOpen, onClose, onBack, onImport, existingColumns, existingRows, importRows, setImportRows, headers, setHeaders, getImageUrl }: ExcelImportModalProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -81,6 +82,7 @@ export const ExcelImportModal = ({ isOpen, onClose, onBack, onImport, existingCo
     setIsProcessing(true);
     setProgress(10);
     setImportRows([]);
+    setSelectedRowIds(new Set());
     
     try {
       const arrayBuffer = await file.arrayBuffer();
@@ -334,14 +336,15 @@ export const ExcelImportModal = ({ isOpen, onClose, onBack, onImport, existingCo
     setProgress(20);
     await new Promise(resolve => setTimeout(resolve, 50));
 
+    const rowsToProcess = selectedRowIds.size > 0 ? finalRows.filter(r => selectedRowIds.has(r._id)) : finalRows;
+    const totalRows = rowsToProcess.length;
     const formattedRows: RowData[] = [];
-    const totalRows = importRows.length;
     let ignoredDuplicates = 0;
     
     // Process rows in chunks to avoid freezing the UI
-    const chunkSize = 50; // Smaller chunk size for image processing
+    const chunkSize = 50; 
     for (let i = 0; i < totalRows; i += chunkSize) {
-      const chunk = importRows.slice(i, i + chunkSize);
+      const chunk = rowsToProcess.slice(i, i + chunkSize);
       const processedChunk: RowData[] = [];
       
       for (const r of chunk) {
@@ -412,6 +415,7 @@ export const ExcelImportModal = ({ isOpen, onClose, onBack, onImport, existingCo
 
   const handleClearData = () => {
     setImportRows([]);
+    setSelectedRowIds(new Set());
     setHeaders([]);
     setSearchQuery('');
     setTrimmedCellsCount(0);
@@ -498,6 +502,12 @@ export const ExcelImportModal = ({ isOpen, onClose, onBack, onImport, existingCo
           <table className="w-full text-[13px] border-collapse">
             <thead className="sticky top-0 bg-gray-100 z-10 shadow-sm">
               <tr>
+                <th className="p-2 border w-10 text-center">
+                  <input type="checkbox" className="cursor-pointer" onChange={(e) => {
+                    if (e.target.checked) setSelectedRowIds(new Set(finalRows.map(r => r._id)));
+                    else setSelectedRowIds(new Set());
+                  }} />
+                </th>
                 {headers.map((h, i) => {
                   const existingCol = existingColumns.find(c => c.name.toLowerCase() === h.toLowerCase());
                   const isNew = !existingCol;
@@ -515,13 +525,26 @@ export const ExcelImportModal = ({ isOpen, onClose, onBack, onImport, existingCo
             <tbody>
               {importRows.length === 0 ? (
                 <tr>
-                  <td colSpan={headers.length} className="p-10 text-center text-gray-400 font-medium">
+                  <td colSpan={headers.length + 1} className="p-10 text-center text-gray-400 font-medium">
                     No data to preview. Please upload an Excel file.
                   </td>
                 </tr>
               ) : (
                 finalRows.map((row, i) => (
-                  <tr key={i} className="hover:bg-gray-50 transition-colors">
+                  <tr key={i} className={`transition-colors ${selectedRowIds.has(row._id) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                    <td className="p-2 border text-center">
+                      <input 
+                        type="checkbox" 
+                        className="cursor-pointer"
+                        checked={selectedRowIds.has(row._id)} 
+                        onChange={() => {
+                          const next = new Set(selectedRowIds);
+                          if (next.has(row._id)) next.delete(row._id);
+                          else next.add(row._id);
+                          setSelectedRowIds(next);
+                        }} 
+                      />
+                    </td>
                     {headers.map(h => (
                       <td key={h} className="p-2 border whitespace-pre-wrap break-words min-w-[150px]">
                         {String(row[h]).startsWith('data:image') || (row[h] && typeof row[h] === 'string' && /\.(jpg|jpeg|png|gif|webp)$/i.test(row[h])) ? 
@@ -537,8 +560,8 @@ export const ExcelImportModal = ({ isOpen, onClose, onBack, onImport, existingCo
         </div>
 
         <div className="flex justify-between items-center mt-4 pt-4 border-t sticky bottom-0 bg-white z-10 pb-2 shrink-0">
-          <span className="text-xs text-gray-500 font-bold">
-            {importRows.length > 0 ? `${importRows.length} rows found in file` : ""}
+          <span className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-md">
+            {selectedRowIds.size > 0 ? `${selectedRowIds.size} rows selected` : `No selection (Will import all ${finalRows.length} filtered rows)`}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleBack} className="flex items-center gap-2" disabled={isProcessing || isImporting}>
@@ -548,9 +571,9 @@ export const ExcelImportModal = ({ isOpen, onClose, onBack, onImport, existingCo
             <Button 
               variant="green" 
               onClick={handleConfirm} 
-              disabled={importRows.length === 0 || isProcessing || isImporting}
+              disabled={finalRows.length === 0 || isProcessing || isImporting}
             >
-              {isImporting ? "Importing..." : `Confirm & Import ${importRows.length} Rows`}
+              {isImporting ? "Importing..." : `Confirm & Import ${selectedRowIds.size > 0 ? selectedRowIds.size : finalRows.length} Rows`}
             </Button>
           </div>
         </div>
