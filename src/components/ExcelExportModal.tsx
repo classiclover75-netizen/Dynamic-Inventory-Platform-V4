@@ -44,18 +44,36 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
   const exportColumns = useMemo(() => columns.filter(c => c.key !== 'sr'), [columns]);
 
   const highlightText = (text: string, query: string) => {
-    if (!query || !text) return text;
-    const strText = String(text);
+    const cleanText = text ? String(text).replace(/<[^>]*>/g, '').replace(/<br\s*\/?>/gi, ' ').replace(/&nbsp;/gi, ' ') : '';
+    if (!query || !cleanText) return cleanText;
     const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
-    if (tokens.length === 0) return strText;
+    if (tokens.length === 0) return cleanText;
 
-    const escapedTokens = tokens.map(t => t.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
-    const regex = new RegExp(`(${escapedTokens.join('|')})`, 'gi');
-
-    const parts = strText.split(regex);
+    const escapedStrings = tokens.map(t => {
+      const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let bStart = '';
+      let bEnd = '';
+      if (/^[0-9]/.test(t)) {
+        bStart = '(?<![0-9])';
+        bEnd = '';
+      } else if (/^[a-zA-Z]/.test(t)) {
+        if (t.length <= 2) {
+          bStart = '(?<![a-zA-Z])';
+          bEnd = '(?![a-zA-Z]{2,})';
+        } else {
+          bStart = '';
+          bEnd = '';
+        }
+      }
+      return bStart + escaped + bEnd;
+    });
+    
+    const regex = new RegExp('(' + escapedStrings.join('|') + ')', 'gi');
+    const parts = cleanText.split(regex);
+    
     return parts.map((part, i) => 
-      tokens.some(t => t === part.toLowerCase()) ? (
-        <span key={i} className="bg-yellow-300 text-black font-bold px-0.5 rounded-sm">{part}</span>
+      regex.test(part) ? (
+        <span key={i} className="bg-yellow-300 text-black font-bold px-[1px] rounded-sm">{part}</span>
       ) : (
         part
       )
@@ -65,10 +83,36 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
   // Code 2 wala Advanced Tokenized Search
   const filteredRows = useMemo(() => {
     if (!deferredSearchQuery) return localRows;
-    const tokens = deferredSearchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    const tokens = deferredSearchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    
     return localRows.filter(row => {
-      const blob = Object.values(row).join(' ').toLowerCase();
-      return tokens.every(t => blob.includes(t));
+      const searchableValues = Object.values(row).map(val => 
+        val !== null && val !== undefined ? String(val) : ''
+      );
+      const blob = searchableValues.join(' ')
+        .replace(/<[^>]*>/g, '')
+        .replace(/<br\s*\/?>/gi, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .toLowerCase();
+      
+      return tokens.every(t => {
+        const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        let bStart = '';
+        let bEnd = '';
+        if (/^[0-9]/.test(t)) {
+          bStart = '(?<![0-9])';
+          bEnd = ''; 
+        } else if (/^[a-zA-Z]/.test(t)) {
+          if (t.length <= 2) {
+            bStart = '(?<![a-zA-Z])';
+            bEnd = '(?![a-zA-Z]{2,})'; 
+          } else {
+            bStart = '';
+            bEnd = '';
+          }
+        }
+        return new RegExp(bStart + escaped + bEnd, 'i').test(blob);
+      });
     });
   }, [localRows, deferredSearchQuery]);
 
