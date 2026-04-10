@@ -231,6 +231,8 @@ function AppContent() {
   const [activeAnchor, setActiveAnchor] = useState<HTMLElement | null>(null);
 
   const [pageSearchQueries, setPageSearchQueries] = useState<Record<string, string>>({});
+  const [primarySearchTags, setPrimarySearchTags] = useState<string[]>([]);
+  const [secondarySearchTags, setSecondarySearchTags] = useState<string[]>([]);
   const currentSearch = pageSearchQueries[state.activePage] || '';
   const [secondarySearchQuery, setSecondarySearchQuery] = useState('');
   const [activeSearchView, setActiveSearchView] = useState<'primary' | 'secondary'>('primary');
@@ -322,11 +324,41 @@ function AppContent() {
   const handleSecUndo = () => setSecHist(prev => { if (prev.pointer > 0) { isSecUndoRef.current = true; setSecondarySearchInput(prev.entries[prev.pointer - 1].value); return { ...prev, pointer: prev.pointer - 1 }; } return prev; });
   const handleSecRedo = () => setSecHist(prev => { if (prev.pointer < prev.entries.length - 1) { isSecUndoRef.current = true; setSecondarySearchInput(prev.entries[prev.pointer + 1].value); return { ...prev, pointer: prev.pointer + 1 }; } return prev; });
 
+  const handleAddPrimaryTag = () => {
+    if (primarySearchInput.trim()) {
+      setPrimarySearchTags(prev => [...prev, primarySearchInput.trim()]);
+      setPrimarySearchInput('');
+    }
+  };
+
+  const handleRemovePrimaryTag = (index: number) => {
+    setPrimarySearchTags(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddSecondaryTag = () => {
+    if (secondarySearchInput.trim()) {
+      setSecondarySearchTags(prev => [...prev, secondarySearchInput.trim()]);
+      setSecondarySearchInput('');
+    }
+  };
+
+  const handleRemoveSecondaryTag = (index: number) => {
+    setSecondarySearchTags(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handlePrimKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddPrimaryTag();
+    }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.shiftKey ? handlePrimRedo() : handlePrimUndo(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handlePrimRedo(); }
   };
   const handleSecKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddSecondaryTag();
+    }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.shiftKey ? handleSecRedo() : handleSecUndo(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handleSecRedo(); }
   };
@@ -1008,8 +1040,8 @@ function AppContent() {
 
   const filteredRows = useMemo(() => {
     let rows = activeRows;
-    if (currentSearch.trim()) {
-      const tokens = currentSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const activeQueries = [...primarySearchTags, currentSearch.trim()].filter(Boolean);
+    if (activeQueries.length > 0) {
       rows = rows.filter(row => {
         const searchableValues = activeConfig.columns.map(col => {
           if (col.key === 'sr' || col.type === 'image' || col.type === 'file') return '';
@@ -1023,30 +1055,31 @@ function AppContent() {
           .replace(/&nbsp;/gi, ' ')
           .toLowerCase();
         
-        return tokens.every(t => {
-          const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          let bStart = '';
-          let bEnd = '';
-          if (/^[0-9]/.test(t)) {
-            bStart = '(?<![0-9])'; // Numbers start strict
-            bEnd = ''; 
-          } else if (/^[a-zA-Z]/.test(t)) {
-            if (t.length <= 2) {
-              bStart = '(?<![a-zA-Z])'; // Must start a word
-              // CRITICAL: Allows exactly 0 or 1 extra letter. 
-              // "sa" matches "sa", "bi" matches "bio". Blocks "same" (2 extra letters).
-              bEnd = '(?![a-zA-Z]{2,})'; 
-            } else {
-              bStart = ''; // 3+ letters are fully flexible substrings
-              bEnd = '';
+        return activeQueries.some(query => {
+          const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+          return tokens.every(t => {
+            const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            let bStart = '';
+            let bEnd = '';
+            if (/^[0-9]/.test(t)) {
+              bStart = '(?<![0-9])'; // Numbers start strict
+              bEnd = ''; 
+            } else if (/^[a-zA-Z]/.test(t)) {
+              if (t.length <= 2) {
+                bStart = '(?<![a-zA-Z])'; // Must start a word
+                bEnd = '(?![a-zA-Z]{2,})'; 
+              } else {
+                bStart = ''; // 3+ letters are fully flexible substrings
+                bEnd = '';
+              }
             }
-          }
-          return new RegExp(bStart + escaped + bEnd, 'i').test(blob);
+            return new RegExp(bStart + escaped + bEnd, 'i').test(blob);
+          });
         });
       });
     }
     return sortRows(rows, activeConfig.columns);
-  }, [activeRows, currentSearch, activeConfig.columns]);
+  }, [activeRows, currentSearch, primarySearchTags, activeConfig.columns]);
 
   const secondaryFilteredRows = useMemo(() => {
     if (!activeConfig.secondarySearchPage) return [];
@@ -1055,8 +1088,8 @@ function AppContent() {
     if (!secConfig) return [];
     
     let rows = secRows;
-    if (secondarySearchQuery.trim()) {
-      const tokens = secondarySearchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const activeQueries = [...secondarySearchTags, secondarySearchQuery.trim()].filter(Boolean);
+    if (activeQueries.length > 0) {
       rows = rows.filter(row => {
         const searchableValues = secConfig.columns.map(col => {
           if (col.key === 'sr' || col.type === 'image' || col.type === 'file') return '';
@@ -1070,30 +1103,31 @@ function AppContent() {
           .replace(/&nbsp;/gi, ' ')
           .toLowerCase();
         
-        return tokens.every(t => {
-          const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          let bStart = '';
-          let bEnd = '';
-          if (/^[0-9]/.test(t)) {
-            bStart = '(?<![0-9])'; // Numbers start strict
-            bEnd = ''; 
-          } else if (/^[a-zA-Z]/.test(t)) {
-            if (t.length <= 2) {
-              bStart = '(?<![a-zA-Z])'; // Must start a word
-              // CRITICAL: Allows exactly 0 or 1 extra letter. 
-              // "sa" matches "sa", "bi" matches "bio". Blocks "same" (2 extra letters).
-              bEnd = '(?![a-zA-Z]{2,})'; 
-            } else {
-              bStart = ''; // 3+ letters are fully flexible substrings
-              bEnd = '';
+        return activeQueries.some(query => {
+          const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+          return tokens.every(t => {
+            const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            let bStart = '';
+            let bEnd = '';
+            if (/^[0-9]/.test(t)) {
+              bStart = '(?<![0-9])'; // Numbers start strict
+              bEnd = ''; 
+            } else if (/^[a-zA-Z]/.test(t)) {
+              if (t.length <= 2) {
+                bStart = '(?<![a-zA-Z])'; // Must start a word
+                bEnd = '(?![a-zA-Z]{2,})'; 
+              } else {
+                bStart = ''; // 3+ letters are fully flexible substrings
+                bEnd = '';
+              }
             }
-          }
-          return new RegExp(bStart + escaped + bEnd, 'i').test(blob);
+            return new RegExp(bStart + escaped + bEnd, 'i').test(blob);
+          });
         });
       });
     }
     return sortRows(rows, secConfig.columns);
-  }, [state.pageRows, state.pageConfigs, activeConfig.secondarySearchPage, secondarySearchQuery]);
+  }, [state.pageRows, state.pageConfigs, activeConfig.secondarySearchPage, secondarySearchQuery, secondarySearchTags]);
 
     const highlightText = (text: string, tokens: string[]) => {
       const cleanText = text ? text.replace(/<!--[\s\S]*?-->/g, '').replace(/<br\s*\/?>/gi, ' ').replace(/&nbsp;/gi, ' ') : '';
@@ -1149,8 +1183,8 @@ function AppContent() {
       return cleanHtml.replace(regex, match => `<span class="bg-yellow-300 text-black font-bold rounded-sm px-[1px]">${match}</span>`);
     };
 
-  const searchTokens = currentSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const secondarySearchTokens = secondarySearchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const searchTokens = [...primarySearchTags, currentSearch.trim()].flatMap(q => q.toLowerCase().split(/\s+/)).filter(Boolean);
+  const secondarySearchTokens = [...secondarySearchTags, secondarySearchQuery.trim()].flatMap(q => q.toLowerCase().split(/\s+/)).filter(Boolean);
 
   const isSecondaryActive = activeSearchView === 'secondary' && !!(activeConfig.secondarySearchPage && state.pageConfigs[activeConfig.secondarySearchPage]);
   const displayConfig = isSecondaryActive ? state.pageConfigs[activeConfig.secondarySearchPage!] : activeConfig;
@@ -1628,9 +1662,24 @@ function AppContent() {
           if (type === 'primary') {
             return (
               <div key="primary" className="flex items-center gap-2 flex-1">
-                <div className="relative flex-1 overflow-x-auto custom-scrollbar">
-                  <Input ref={primaryInputRef} key={`prim-${isAnyModalOpen}`} onBeforeInput={(e: any) => { if (e.nativeEvent && e.nativeEvent.inputType && e.nativeEvent.inputType.startsWith('history')) e.preventDefault(); }} className="border-2 border-[#217346] text-sm w-full pr-8" value={primarySearchInput} readOnly={isAnyModalOpen} onChange={e => { setPrimarySearchInput(e.target.value); if (e.target.value && (activeConfig.independentSearchBars === false)) setSecondarySearchInput(''); }} onFocus={() => setActiveSearchView('primary')} onKeyDown={handlePrimKeyDown} />
-                  {!primarySearchInput && <div className="absolute inset-y-0 left-0 flex items-center pl-[10px] pointer-events-none text-gray-400 text-sm whitespace-nowrap">🔍 Search Data {state.activePage ? <>For "<strong>{state.activePage}</strong>"</> : ""}</div>}
+                <div className="relative flex-1 flex items-center gap-1 border-2 border-[#217346] rounded px-1 min-w-0 bg-white">
+                  <div className="flex flex-wrap gap-1 max-w-[60%] overflow-hidden">
+                    {primarySearchTags.map((tag, idx) => (
+                      <span key={idx} className="flex items-center gap-1 bg-green-100 text-[#217346] text-[11px] font-bold px-2 py-0.5 rounded-full border border-green-200 whitespace-nowrap">
+                        {tag}
+                        <button onClick={() => handleRemovePrimaryTag(idx)} className="hover:text-red-500 transition-colors border-0 bg-transparent p-0 cursor-pointer flex items-center">
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="relative flex-1 min-w-[100px]">
+                    <Input ref={primaryInputRef} key={`prim-${isAnyModalOpen}`} onBeforeInput={(e: any) => { if (e.nativeEvent && e.nativeEvent.inputType && e.nativeEvent.inputType.startsWith('history')) e.preventDefault(); }} className="border-0 focus:ring-0 text-sm w-full pr-8 h-8" value={primarySearchInput} readOnly={isAnyModalOpen} onChange={e => { setPrimarySearchInput(e.target.value); if (e.target.value && (activeConfig.independentSearchBars === false)) setSecondarySearchInput(''); }} onFocus={() => setActiveSearchView('primary')} onKeyDown={handlePrimKeyDown} />
+                    {!primarySearchInput && primarySearchTags.length === 0 && <div className="absolute inset-y-0 left-0 flex items-center pl-0 pointer-events-none text-gray-400 text-sm whitespace-nowrap">🔍 Search Data {state.activePage ? <>For "<strong>{state.activePage}</strong>"</> : ""}</div>}
+                  </div>
+                  <button onClick={handleAddPrimaryTag} className="p-1 text-[#217346] hover:bg-green-100 rounded transition-colors border-0 bg-transparent cursor-pointer">
+                    <Plus size={18} />
+                  </button>
                 </div>
                 <div className="flex items-center gap-1.5 relative" ref={primHistRef}>
                   <button title="Undo (Ctrl+Z)" onClick={handlePrimUndo} disabled={primHist.pointer === 0} className="p-1.5 text-[#217346] hover:bg-green-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors border-0 bg-transparent cursor-pointer"><Undo2 size={18} /></button>
@@ -1655,9 +1704,24 @@ function AppContent() {
           } else if (type === 'secondary' && activeConfig.secondarySearchPage) {
             return (
               <div key="secondary" className="flex items-center gap-2 flex-1">
-                <div className="relative flex-1 overflow-x-auto custom-scrollbar">
-                  <Input ref={secondaryInputRef} key={`sec-${isAnyModalOpen}`} onBeforeInput={(e: any) => { if (e.nativeEvent && e.nativeEvent.inputType && e.nativeEvent.inputType.startsWith('history')) e.preventDefault(); }} className="border-2 border-[#2b579a] text-sm w-full pr-8" value={secondarySearchInput} readOnly={isAnyModalOpen} onChange={e => { setSecondarySearchInput(e.target.value); if (e.target.value && (activeConfig.independentSearchBars === false)) setPrimarySearchInput(''); }} onFocus={() => setActiveSearchView('secondary')} onKeyDown={handleSecKeyDown} />
-                  {!secondarySearchInput && <div className="absolute inset-y-0 left-0 flex items-center pl-[10px] pointer-events-none text-gray-400 text-sm whitespace-nowrap">🔍 Search Data For "<strong>{activeConfig.secondarySearchPage}</strong>" (Secondary Search)</div>}
+                <div className="relative flex-1 flex items-center gap-1 border-2 border-[#2b579a] rounded px-1 min-w-0 bg-white">
+                  <div className="flex flex-wrap gap-1 max-w-[60%] overflow-hidden">
+                    {secondarySearchTags.map((tag, idx) => (
+                      <span key={idx} className="flex items-center gap-1 bg-blue-100 text-[#2b579a] text-[11px] font-bold px-2 py-0.5 rounded-full border border-blue-200 whitespace-nowrap">
+                        {tag}
+                        <button onClick={() => handleRemoveSecondaryTag(idx)} className="hover:text-red-500 transition-colors border-0 bg-transparent p-0 cursor-pointer flex items-center">
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="relative flex-1 min-w-[100px]">
+                    <Input ref={secondaryInputRef} key={`sec-${isAnyModalOpen}`} onBeforeInput={(e: any) => { if (e.nativeEvent && e.nativeEvent.inputType && e.nativeEvent.inputType.startsWith('history')) e.preventDefault(); }} className="border-0 focus:ring-0 text-sm w-full pr-8 h-8" value={secondarySearchInput} readOnly={isAnyModalOpen} onChange={e => { setSecondarySearchInput(e.target.value); if (e.target.value && (activeConfig.independentSearchBars === false)) setPrimarySearchInput(''); }} onFocus={() => setActiveSearchView('secondary')} onKeyDown={handleSecKeyDown} />
+                    {!secondarySearchInput && secondarySearchTags.length === 0 && <div className="absolute inset-y-0 left-0 flex items-center pl-0 pointer-events-none text-gray-400 text-sm whitespace-nowrap">🔍 Search Data For "<strong>{activeConfig.secondarySearchPage}</strong>" (Secondary Search)</div>}
+                  </div>
+                  <button onClick={handleAddSecondaryTag} className="p-1 text-[#2b579a] hover:bg-blue-100 rounded transition-colors border-0 bg-transparent cursor-pointer">
+                    <Plus size={18} />
+                  </button>
                 </div>
                 <div className="flex items-center gap-1.5 relative" ref={secHistRef}>
                   <button title="Undo (Ctrl+Z)" onClick={handleSecUndo} disabled={secHist.pointer === 0} className="p-1.5 text-[#2b579a] hover:bg-blue-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors border-0 bg-transparent cursor-pointer"><Undo2 size={18} /></button>
