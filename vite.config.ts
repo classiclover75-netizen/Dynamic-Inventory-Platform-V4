@@ -20,17 +20,10 @@ export default defineConfig(({mode}) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-              return 'react-vendor';
-            }
-            if (id.includes('node_modules/@hello-pangea/dnd') || id.includes('node_modules/react-beautiful-dnd')) {
-              return 'dnd-vendor';
-            }
-            if (id.includes('node_modules/lucide-react')) {
-              return 'icons-vendor';
-            }
             if (id.includes('node_modules')) {
-              return 'vendor';
+              const parts = id.toString().split('node_modules/')[1].split('/');
+              // Handle scoped packages (e.g., @hello-pangea/dnd) and standard packages
+              return parts[0].startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0];
             }
           },
         },
