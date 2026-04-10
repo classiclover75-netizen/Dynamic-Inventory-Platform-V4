@@ -26,6 +26,43 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = "36px", clas
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return;
+
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+
+      const br = document.createElement('br');
+      const zwsp = document.createTextNode('\u200B');
+      const fragment = document.createDocumentFragment();
+      fragment.appendChild(br);
+      fragment.appendChild(zwsp);
+      range.insertNode(fragment);
+
+      // Move selection to after the ZWSP
+      range.setStartAfter(zwsp);
+      range.collapse(true);
+
+      // Crucially, ensure the Selection/Range is moved OUTSIDE of any active preceding rich-text tags
+      let parent = zwsp.parentElement;
+      while (parent && parent !== divRef.current) {
+        if (['B', 'I', 'U', 'S', 'SPAN', 'STRONG', 'EM', 'FONT'].includes(parent.tagName)) {
+          parent.after(br, zwsp);
+          range.setStartAfter(zwsp);
+          range.collapse(true);
+        }
+        parent = parent.parentElement;
+      }
+
+      selection.removeAllRanges();
+      selection.addRange(range);
+      onChange(e.currentTarget.innerHTML);
+    }
+  };
+
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
     const html = e.clipboardData.getData('text/html');
@@ -39,10 +76,25 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = "36px", clas
       if (!selection || !selection.rangeCount) return;
       selection.deleteFromDocument();
       const range = selection.getRangeAt(0);
+
+      // Normalize: If we are at the end of a formatting tag, move out before inserting plain text
+      // to prevent formatting bleed from the previous content.
+      let container = range.startContainer;
+      if (container.nodeType === Node.TEXT_NODE && range.startOffset === (container.textContent?.length || 0)) {
+        let parent = container.parentElement;
+        while (parent && parent !== divRef.current) {
+          if (['B', 'I', 'U', 'S', 'SPAN', 'STRONG', 'EM', 'FONT'].includes(parent.tagName)) {
+            range.setStartAfter(parent);
+            range.collapse(true);
+          }
+          parent = parent.parentElement;
+        }
+      }
+
       const textNode = document.createTextNode(text);
       range.insertNode(textNode);
       range.setStartAfter(textNode);
-      range.setEndAfter(textNode);
+      range.collapse(true);
       selection.removeAllRanges();
       selection.addRange(range);
     }
@@ -56,6 +108,7 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = "36px", clas
       onInput={handleInput}
       onBlur={handleBlur}
       onPaste={handlePaste}
+      onKeyDown={handleKeyDown}
       className={`w-full border border-[#cfd8dc] rounded p-1.5 text-[13px] overflow-auto focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white ${className}`}
       style={{ minHeight }}
       data-placeholder={placeholder}
