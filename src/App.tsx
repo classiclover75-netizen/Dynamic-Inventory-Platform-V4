@@ -351,6 +351,9 @@ function AppContent() {
       e.preventDefault();
       handleAddPrimaryTag();
     }
+    if (e.key === 'Backspace' && primarySearchInput === '') {
+      setPrimarySearchTags(prev => prev.slice(0, -1));
+    }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.shiftKey ? handlePrimRedo() : handlePrimUndo(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handlePrimRedo(); }
   };
@@ -358,6 +361,9 @@ function AppContent() {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAddSecondaryTag();
+    }
+    if (e.key === 'Backspace' && secondarySearchInput === '') {
+      setSecondarySearchTags(prev => prev.slice(0, -1));
     }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.shiftKey ? handleSecRedo() : handleSecUndo(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handleSecRedo(); }
