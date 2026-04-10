@@ -1236,7 +1236,7 @@ function AppContent() {
           <thead>
             <tr>
               {!isSecondary && config.rowReorderEnabled && (
-                <th className={`sticky top-0 z-10 text-center p-1.5 border-r-[length:thin] border-b-[length:thin] border-[#e0e0e0] w-[60px] bg-[#f3f3f3] data-[hovered-col=true]:bg-[#fce7f3]`}>
+                <th className={`sticky top-0 z-10 text-center p-1.5 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0] w-[60px] bg-[#f3f3f3] data-[hovered-col=true]:bg-[#fce7f3]`}>
                   <input 
                     type="checkbox" 
                     className="cursor-pointer"
@@ -1260,7 +1260,7 @@ function AppContent() {
                 return (
                   <th 
                     key={col.key} 
-                    className={`sticky top-0 z-10 text-[14px] font-bold text-[#2f3d49] p-1.5 border-r-[length:thin] border-b-[length:thin] border-[#e0e0e0] ${!col.width && col.key !== 'sr' ? defaultWidthClass : (col.key === 'sr' || col.type === 'image' ? 'text-center' : 'text-left')} bg-[#f3f3f3] data-[hovered-col=true]:bg-[#fce7f3]`}
+                    className={`sticky top-0 z-10 text-[14px] font-bold text-[#2f3d49] p-1.5 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0] ${!col.width && col.key !== 'sr' ? defaultWidthClass : (col.key === 'sr' || col.type === 'image' ? 'text-center' : 'text-left')} bg-[#f3f3f3] data-[hovered-col=true]:bg-[#fce7f3]`}
                     style={finalWidthStyle}
                   >
                     <div className="flex items-center gap-1">
@@ -1282,7 +1282,7 @@ function AppContent() {
               <tbody ref={provided.innerRef} {...provided.droppableProps}>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={colSpan} className="text-center text-[#90a4ae] font-normal p-1.5 border-r-[length:thin] border-b-[length:thin] border-[#e0e0e0]">
+                    <td colSpan={colSpan} className="text-center text-[#90a4ae] font-normal p-1.5 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0]">
                       {tokens.length > 0 ? 'No rows match your search.' : 'No row data yet.'}
                     </td>
                   </tr>
@@ -1312,7 +1312,7 @@ function AppContent() {
                         >
                           {!isSecondary && config.rowReorderEnabled && (
                             <td 
-                              className={`text-center p-1.5 border-r-[length:thin] border-b-[length:thin] border-[#e0e0e0] data-[hovered-col=true]:bg-[#f0f7ff] data-[hovered-row=true]:bg-[#e8f0fe] data-[hovered-exact=true]:!bg-[#d2e3fc] data-[hovered-exact=true]:outline data-[hovered-exact=true]:outline-[3px] data-[hovered-exact=true]:outline-[#2b579a] data-[hovered-exact=true]:relative data-[hovered-exact=true]:z-10 data-[hovered-exact=true]:shadow-inner`}
+                              className={`text-center p-1.5 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0] data-[hovered-col=true]:bg-[#f0f7ff] data-[hovered-row=true]:bg-[#e8f0fe] data-[hovered-exact=true]:!bg-[#d2e3fc] data-[hovered-exact=true]:outline data-[hovered-exact=true]:outline-[3px] data-[hovered-exact=true]:outline-[#2b579a] data-[hovered-exact=true]:relative data-[hovered-exact=true]:z-10 data-[hovered-exact=true]:shadow-inner`}
                             >
                               <div className="flex items-center justify-center gap-2">
                                 <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-700">
@@ -1344,7 +1344,7 @@ function AppContent() {
                               const srWidthStyle = { width: `${state.globalRowNoWidth || 100}px`, minWidth: `${state.globalRowNoWidth || 100}px` };
                               const finalSrStyle = col.width ? { width: `${col.width}px`, minWidth: `${col.width}px` } : srWidthStyle;
                               return (
-                                <td key={col.key} {...commonProps} style={{...commonProps.style, ...finalSrStyle}} className={`font-normal p-1 border-r-[length:thin] border-b-[length:thin] border-[#e0e0e0] bg-[#f3f3f3] data-[hovered-row=true]:bg-[#fce7f3] overflow-hidden`}>
+                                <td key={col.key} {...commonProps} style={{...commonProps.style, ...finalSrStyle}} className={`font-normal p-1 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0] bg-[#f3f3f3] data-[hovered-row=true]:bg-[#fce7f3] overflow-hidden`}>
                                   <div className="flex items-center justify-center gap-0 px-0.5 whitespace-nowrap">
                                     <span className="text-[14px]">{rowIndex + 1}.</span>
                                     <div className="flex items-center shrink-0">
@@ -1374,7 +1374,7 @@ function AppContent() {
                                 <td 
                                   key={col.key} 
                                   {...commonProps} 
-                                  className={`text-center p-0 border-r-[length:thin] border-b-[length:thin] border-[#e0e0e0] ${hoverClass} bg-white overflow-hidden`}
+                                  className={`text-center p-0 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0] ${hoverClass} bg-white overflow-hidden`}
                                   style={{...commonProps.style, height: `${config.rowHeight || 100}px`}}
                                   onMouseMove={(e) => {
                                     if (isImg && config.hoverPreviewEnabled) {
@@ -1415,7 +1415,7 @@ function AppContent() {
                                 : hoverClass;
                               
                               return (
-                                <td key={col.key} {...commonProps} className={`p-1.5 border-r-[length:thin] border-b-[length:thin] border-[#e0e0e0] ${cellClass} overflow-hidden`}>
+                                <td key={col.key} {...commonProps} className={`p-1.5 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0] ${cellClass} overflow-hidden`}>
                                   {items.length > 0 && (
                                     <div className="flex flex-col gap-1">
                                       {items.map((item, i) => {
@@ -1468,7 +1468,7 @@ function AppContent() {
 
                             if (Array.isArray(rawVal)) {
                               return (
-                                <td key={col.key} {...commonProps} className={`p-1.5 border-r-[length:thin] border-b-[length:thin] border-[#e0e0e0] ${hoverClass} overflow-hidden`}>
+                                <td key={col.key} {...commonProps} className={`p-1.5 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0] ${hoverClass} overflow-hidden`}>
                                   {rawVal.map((v, i) => {
                                     const strVal = String(v || '');
                                     const hasHtml = /<[a-z][\s\S]*>/i.test(strVal);
@@ -1487,7 +1487,7 @@ function AppContent() {
                             const hasHtmlRaw = /<[a-z][\s\S]*>/i.test(strRawVal);
 
                             return (
-                              <td key={col.key} {...commonProps} className={`p-1.5 border-r-[length:thin] border-b-[length:thin] border-[#e0e0e0] ${hoverClass} overflow-hidden whitespace-pre-wrap`}>
+                              <td key={col.key} {...commonProps} className={`p-1.5 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0] ${hoverClass} overflow-hidden whitespace-pre-wrap`}>
                                 {hasHtmlRaw ? <span dangerouslySetInnerHTML={{ __html: highlightHtmlText(strRawVal, tokens) }} /> : highlightText(rawVal, tokens)}
                               </td>
                             );
