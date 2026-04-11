@@ -1198,6 +1198,35 @@ function AppContent() {
   const displayTokens = isSecondaryActive ? secondarySearchTokens : searchTokens;
 
   const parentRef = useRef<HTMLDivElement>(null);
+  const savedPrimScroll = useRef(0);
+  const savedSecScroll = useRef(0);
+  const wasPrimSearchActive = useRef(false);
+  const wasSecSearchActive = useRef(false);
+
+  useEffect(() => {
+    // Primary
+    if (searchTokens.length > 0 && !wasPrimSearchActive.current) {
+      savedPrimScroll.current = parentRef.current?.scrollTop || 0;
+      wasPrimSearchActive.current = true;
+    } else if (searchTokens.length === 0 && wasPrimSearchActive.current) {
+      wasPrimSearchActive.current = false;
+      setTimeout(() => {
+        if (parentRef.current) parentRef.current.scrollTop = savedPrimScroll.current;
+      }, 50);
+    }
+
+    // Secondary
+    if (secondarySearchTokens.length > 0 && !wasSecSearchActive.current) {
+      savedSecScroll.current = parentRef.current?.scrollTop || 0;
+      wasSecSearchActive.current = true;
+    } else if (secondarySearchTokens.length === 0 && wasSecSearchActive.current) {
+      wasSecSearchActive.current = false;
+      setTimeout(() => {
+        if (parentRef.current) parentRef.current.scrollTop = savedSecScroll.current;
+      }, 50);
+    }
+  }, [searchTokens.length, secondarySearchTokens.length]);
+
   const virtualizer = useVirtualizer({
     count: displayRows.length,
     getScrollElement: () => parentRef.current,
