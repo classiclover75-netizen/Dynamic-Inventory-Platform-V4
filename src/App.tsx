@@ -1196,6 +1196,14 @@ function AppContent() {
   const searchTokens = [...primarySearchTags, currentSearch.trim()].flatMap(q => q.toLowerCase().split(/\s+/)).filter(Boolean);
   const secondarySearchTokens = [...secondarySearchTags, secondarySearchQuery.trim()].flatMap(q => q.toLowerCase().split(/\s+/)).filter(Boolean);
 
+  useEffect(() => {
+    if (searchTokens.length > 0) latestPrimFilteredIds.current = new Set(filteredRows.map(r => String(r.id)));
+  }, [filteredRows, searchTokens.length]);
+
+  useEffect(() => {
+    if (secondarySearchTokens.length > 0) latestSecFilteredIds.current = new Set(secondaryFilteredRows.map(r => String(r.id)));
+  }, [secondaryFilteredRows, secondarySearchTokens.length]);
+
   const isSecondaryActive = activeSearchView === 'secondary' && !!(activeConfig.secondarySearchPage && state.pageConfigs[activeConfig.secondarySearchPage]);
   const displayConfig = isSecondaryActive ? state.pageConfigs[activeConfig.secondarySearchPage!] : activeConfig;
   const displayRows = isSecondaryActive ? secondaryFilteredRows : filteredRows;
@@ -1211,16 +1219,22 @@ function AppContent() {
   const prevSecTokens = useRef<string[]>([]);
   const [ghostPrimTokens, setGhostPrimTokens] = useState<string[]>([]);
   const [ghostSecTokens, setGhostSecTokens] = useState<string[]>([]);
+  const latestPrimFilteredIds = useRef<Set<string>>(new Set());
+  const latestSecFilteredIds = useRef<Set<string>>(new Set());
+  const [ghostPrimIds, setGhostPrimIds] = useState<Set<string>>(new Set());
+  const [ghostSecIds, setGhostSecIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Primary
     if (searchTokens.length > 0 && !wasPrimSearchActive.current) {
       prevPrimTokens.current = searchTokens;
       setGhostPrimTokens([]);
+      setGhostPrimIds(new Set());
       wasPrimSearchActive.current = true;
     } else if (searchTokens.length === 0 && wasPrimSearchActive.current) {
       wasPrimSearchActive.current = false;
       setGhostPrimTokens(prevPrimTokens.current);
+      setGhostPrimIds(latestPrimFilteredIds.current);
       setTimeout(() => {
         if (parentRef.current) parentRef.current.scrollTop = savedPrimScroll.current;
       }, 100);
@@ -1230,10 +1244,12 @@ function AppContent() {
     if (secondarySearchTokens.length > 0 && !wasSecSearchActive.current) {
       prevSecTokens.current = secondarySearchTokens;
       setGhostSecTokens([]);
+      setGhostSecIds(new Set());
       wasSecSearchActive.current = true;
     } else if (secondarySearchTokens.length === 0 && wasSecSearchActive.current) {
       wasSecSearchActive.current = false;
       setGhostSecTokens(prevSecTokens.current);
+      setGhostSecIds(latestSecFilteredIds.current);
       setTimeout(() => {
         if (parentRef.current) parentRef.current.scrollTop = savedSecScroll.current;
       }, 100);
@@ -1247,7 +1263,7 @@ function AppContent() {
     overscan: 5,
   });
 
-  const renderTable = (config: PageConfig, rows: RowData[], tokens: string[], isSecondary: boolean, originalRows: RowData[], isGhost: boolean) => {
+  const renderTable = (config: PageConfig, rows: RowData[], tokens: string[], isSecondary: boolean, originalRows: RowData[], isGhost: boolean, ghostIds: Set<string>) => {
     const activePage = isSecondary ? activeConfig.secondarySearchPage : state.activePage;
     if (!config || !config.columns) {
       return (
@@ -1348,6 +1364,7 @@ function AppContent() {
                     {virtualItems.map((virtualItem) => {
                       const rowIndex = virtualItem.index;
                       const row = rows[rowIndex];
+                      const rowTokens = (isGhost && !ghostIds.has(String(row.id))) ? [] : tokens;
                       return (
                         // @ts-ignore
                         <Draggable key={row.id} draggableId={`${isSecondary ? 'sec-' : ''}${row.id}`} index={rowIndex} isDragDisabled={isSecondary || !config.rowReorderEnabled || tokens.length > 0}>
@@ -1478,7 +1495,7 @@ function AppContent() {
                                         const hasHtml = /<[a-z][\s\S]*>/i.test(displayText);
                                         return (
                                           <div key={i} className={`flex items-center justify-between gap-1.5 border border-[#d7e3f6] bg-[#f9fcff] rounded px-1.5 py-0.5 min-h-[25px] ${hideButton ? 'bg-gray-50 border-gray-100 opacity-80' : ''}`}>
-                                            {hasHtml ? <span className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: highlightHtmlText(displayText, tokens) }} /> : <span className="whitespace-pre-wrap">{highlightText(displayText, tokens)}</span>}
+                                            {hasHtml ? <span className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: highlightHtmlText(displayText, rowTokens, isGhost) }} /> : <span className="whitespace-pre-wrap">{highlightText(displayText, rowTokens, isGhost)}</span>}
                                             {!hideButton && (
                                               <>
                                                 <button 
@@ -1526,7 +1543,7 @@ function AppContent() {
                                     const hasHtml = /<[a-z][\s\S]*>/i.test(strVal);
                                     return (
                                       <React.Fragment key={i}>
-                                        {hasHtml ? <span className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: highlightHtmlText(strVal, tokens, isGhost) }} /> : <span className="whitespace-pre-wrap">{highlightText(strVal, tokens, isGhost)}</span>}
+                                        {hasHtml ? <span className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: highlightHtmlText(strVal, rowTokens, isGhost) }} /> : <span className="whitespace-pre-wrap">{highlightText(strVal, rowTokens, isGhost)}</span>}
                                         <br/>
                                       </React.Fragment>
                                     );
@@ -1540,7 +1557,7 @@ function AppContent() {
 
                             return (
                               <td key={col.key} {...commonProps} className={`p-1.5 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0] ${hoverClass} overflow-hidden whitespace-pre-wrap`}>
-                                {hasHtmlRaw ? <span dangerouslySetInnerHTML={{ __html: highlightHtmlText(strRawVal, tokens, isGhost) }} /> : highlightText(rawVal, tokens, isGhost)}
+                                {hasHtmlRaw ? <span dangerouslySetInnerHTML={{ __html: highlightHtmlText(strRawVal, rowTokens, isGhost) }} /> : highlightText(rawVal, rowTokens, isGhost)}
                               </td>
                             );
                           })}
@@ -1577,7 +1594,8 @@ function AppContent() {
         const isGhostActive = displayTokens.length === 0 && (isSecondaryActive ? ghostSecTokens.length > 0 : ghostPrimTokens.length > 0);
         const finalTokens = displayTokens.length > 0 ? displayTokens : (isSecondaryActive ? ghostSecTokens : ghostPrimTokens);
         const originalRows = isSecondaryActive ? (state.pageRows[activeConfig.secondarySearchPage!] || []) : activeRows;
-        return renderTable(displayConfig, displayRows, finalTokens, isSecondaryActive, originalRows, isGhostActive);
+        const ghostIds = isSecondaryActive ? ghostSecIds : ghostPrimIds;
+        return renderTable(displayConfig, displayRows, finalTokens, isSecondaryActive, originalRows, isGhostActive, ghostIds);
       })()}
     </div>
   );
