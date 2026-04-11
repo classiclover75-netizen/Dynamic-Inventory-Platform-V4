@@ -1206,24 +1206,22 @@ function AppContent() {
   useEffect(() => {
     // Primary
     if (searchTokens.length > 0 && !wasPrimSearchActive.current) {
-      savedPrimScroll.current = parentRef.current?.scrollTop || 0;
       wasPrimSearchActive.current = true;
     } else if (searchTokens.length === 0 && wasPrimSearchActive.current) {
       wasPrimSearchActive.current = false;
       setTimeout(() => {
         if (parentRef.current) parentRef.current.scrollTop = savedPrimScroll.current;
-      }, 50);
+      }, 100);
     }
 
     // Secondary
     if (secondarySearchTokens.length > 0 && !wasSecSearchActive.current) {
-      savedSecScroll.current = parentRef.current?.scrollTop || 0;
       wasSecSearchActive.current = true;
     } else if (secondarySearchTokens.length === 0 && wasSecSearchActive.current) {
       wasSecSearchActive.current = false;
       setTimeout(() => {
         if (parentRef.current) parentRef.current.scrollTop = savedSecScroll.current;
-      }, 50);
+      }, 100);
     }
   }, [searchTokens.length, secondarySearchTokens.length]);
 
@@ -1255,7 +1253,17 @@ function AppContent() {
     const colSpan = config.columns.length + (!isSecondary && config.rowReorderEnabled ? 1 : 0);
 
     return (
-      <div className="flex-1 min-h-0 overflow-auto border-none rounded-none m-0 p-0 relative" ref={parentRef}>
+      <div 
+        className="flex-1 min-h-0 overflow-auto border-none rounded-none m-0 p-0 relative" 
+        ref={parentRef}
+        onScroll={(e) => {
+          if (isSecondary) {
+            if (tokens.length === 0) savedSecScroll.current = e.currentTarget.scrollTop;
+          } else {
+            if (tokens.length === 0) savedPrimScroll.current = e.currentTarget.scrollTop;
+          }
+        }}
+      >
         <DragDropContext onDragEnd={isSecondary ? () => {} : handleDragEnd}>
         <table 
           className="w-full border-collapse table-fixed text-[14px] font-normal"
