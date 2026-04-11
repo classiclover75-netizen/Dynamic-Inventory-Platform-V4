@@ -1196,14 +1196,6 @@ function AppContent() {
   const searchTokens = [...primarySearchTags, currentSearch.trim()].flatMap(q => q.toLowerCase().split(/\s+/)).filter(Boolean);
   const secondarySearchTokens = [...secondarySearchTags, secondarySearchQuery.trim()].flatMap(q => q.toLowerCase().split(/\s+/)).filter(Boolean);
 
-  useEffect(() => {
-    if (searchTokens.length > 0) latestPrimFilteredIds.current = new Set(filteredRows.map(r => String(r.id)));
-  }, [filteredRows, searchTokens.length]);
-
-  useEffect(() => {
-    if (secondarySearchTokens.length > 0) latestSecFilteredIds.current = new Set(secondaryFilteredRows.map(r => String(r.id)));
-  }, [secondaryFilteredRows, secondarySearchTokens.length]);
-
   const isSecondaryActive = activeSearchView === 'secondary' && !!(activeConfig.secondarySearchPage && state.pageConfigs[activeConfig.secondarySearchPage]);
   const displayConfig = isSecondaryActive ? state.pageConfigs[activeConfig.secondarySearchPage!] : activeConfig;
   const displayRows = isSecondaryActive ? secondaryFilteredRows : filteredRows;
@@ -1255,6 +1247,14 @@ function AppContent() {
       }, 100);
     }
   }, [searchTokens.length, secondarySearchTokens.length]);
+
+  useEffect(() => {
+    if (searchTokens.length > 0) latestPrimFilteredIds.current = new Set(filteredRows.map(r => String(r.id)));
+  }, [filteredRows, searchTokens.length]);
+
+  useEffect(() => {
+    if (secondarySearchTokens.length > 0) latestSecFilteredIds.current = new Set(secondaryFilteredRows.map(r => String(r.id)));
+  }, [secondaryFilteredRows, secondarySearchTokens.length]);
 
   const virtualizer = useVirtualizer({
     count: displayRows.length,
