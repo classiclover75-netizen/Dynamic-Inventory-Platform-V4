@@ -1135,7 +1135,7 @@ function AppContent() {
     return sortRows(rows, secConfig.columns);
   }, [state.pageRows, state.pageConfigs, activeConfig.secondarySearchPage, secondarySearchQuery, secondarySearchTags]);
 
-    const highlightText = (text: string, tokens: string[]) => {
+    const highlightText = (text: string, tokens: string[], isGhost: boolean = false) => {
       const cleanText = text ? text.replace(/<!--[\s\S]*?-->/g, '').replace(/<br\s*\/?>/gi, ' ').replace(/&nbsp;/gi, ' ') : '';
       if (!tokens || tokens.length === 0 || !cleanText) return cleanText;
       
@@ -1152,19 +1152,21 @@ function AppContent() {
             bEnd = '(?![a-zA-Z]{2,})';
           } else {
             bStart = '';
-            bEnd = '';
           }
         }
         return bStart + escaped + bEnd;
       });
       const regex = new RegExp('(' + escapedStrings.join('|') + ')', 'gi');
       const parts = cleanText.split(regex);
+      const highlightClass = isGhost 
+        ? "bg-green-100 text-green-900 border border-green-500 font-bold rounded-sm px-[1px]" 
+        : "bg-yellow-300 text-black font-bold rounded-sm px-[1px]";
       return parts.map((part, i) => 
-        regex.test(part) ? <span key={i} className="bg-yellow-300 text-black font-bold rounded-sm px-[1px]">{part}</span> : part
+        regex.test(part) ? <span key={i} className={highlightClass}>{part}</span> : part
       );
     };
 
-    const highlightHtmlText = (htmlString: string, tokens: string[]) => {
+    const highlightHtmlText = (htmlString: string, tokens: string[], isGhost: boolean = false) => {
       const cleanHtml = htmlString ? htmlString.replace(/<!--[\s\S]*?-->/g, '').replace(/&nbsp;/gi, ' ') : '';
       if (!tokens || tokens.length === 0 || !cleanHtml) return cleanHtml;
       const escapedStrings = tokens.map(t => {
@@ -1180,13 +1182,15 @@ function AppContent() {
             bEnd = '(?![a-zA-Z]{2,})';
           } else {
             bStart = '';
-            bEnd = '';
           }
         }
         return bStart + escaped + bEnd;
       });
       const regex = new RegExp('(' + escapedStrings.join('|') + ')(?![^<]*>)', 'gi');
-      return cleanHtml.replace(regex, match => `<span class="bg-yellow-300 text-black font-bold rounded-sm px-[1px]">${match}</span>`);
+      const highlightClass = isGhost 
+        ? "bg-green-100 text-green-900 border border-green-500 font-bold rounded-sm px-[1px]" 
+        : "bg-yellow-300 text-black font-bold rounded-sm px-[1px]";
+      return cleanHtml.replace(regex, match => `<span class="${highlightClass}">${match}</span>`);
     };
 
   const searchTokens = [...primarySearchTags, currentSearch.trim()].flatMap(q => q.toLowerCase().split(/\s+/)).filter(Boolean);
@@ -1203,12 +1207,20 @@ function AppContent() {
   const wasPrimSearchActive = useRef(false);
   const wasSecSearchActive = useRef(false);
 
+  const prevPrimTokens = useRef<string[]>([]);
+  const prevSecTokens = useRef<string[]>([]);
+  const [ghostPrimTokens, setGhostPrimTokens] = useState<string[]>([]);
+  const [ghostSecTokens, setGhostSecTokens] = useState<string[]>([]);
+
   useEffect(() => {
     // Primary
     if (searchTokens.length > 0 && !wasPrimSearchActive.current) {
+      prevPrimTokens.current = searchTokens;
+      setGhostPrimTokens([]);
       wasPrimSearchActive.current = true;
     } else if (searchTokens.length === 0 && wasPrimSearchActive.current) {
       wasPrimSearchActive.current = false;
+      setGhostPrimTokens(prevPrimTokens.current);
       setTimeout(() => {
         if (parentRef.current) parentRef.current.scrollTop = savedPrimScroll.current;
       }, 100);
@@ -1216,9 +1228,12 @@ function AppContent() {
 
     // Secondary
     if (secondarySearchTokens.length > 0 && !wasSecSearchActive.current) {
+      prevSecTokens.current = secondarySearchTokens;
+      setGhostSecTokens([]);
       wasSecSearchActive.current = true;
     } else if (secondarySearchTokens.length === 0 && wasSecSearchActive.current) {
       wasSecSearchActive.current = false;
+      setGhostSecTokens(prevSecTokens.current);
       setTimeout(() => {
         if (parentRef.current) parentRef.current.scrollTop = savedSecScroll.current;
       }, 100);
@@ -1232,7 +1247,7 @@ function AppContent() {
     overscan: 5,
   });
 
-  const renderTable = (config: PageConfig, rows: RowData[], tokens: string[], isSecondary: boolean) => {
+  const renderTable = (config: PageConfig, rows: RowData[], tokens: string[], isSecondary: boolean, originalRows: RowData[], isGhost: boolean) => {
     const activePage = isSecondary ? activeConfig.secondarySearchPage : state.activePage;
     if (!config || !config.columns) {
       return (
@@ -1383,7 +1398,7 @@ function AppContent() {
                               return (
                                 <td key={col.key} {...commonProps} style={{...commonProps.style, ...finalSrStyle}} className={`font-normal p-1 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0] bg-[#f3f3f3] data-[hovered-row=true]:bg-[#fce7f3] overflow-hidden`}>
                                   <div className="flex items-center justify-center gap-0 px-0.5 whitespace-nowrap">
-                                    <span className="text-[14px]">{rowIndex + 1}.</span>
+                                    <span className="text-[14px]">{originalRows.findIndex(r => r.id === row.id) + 1}.</span>
                                     <div className="flex items-center shrink-0">
                                       <button 
                                         className="border-0 bg-transparent cursor-pointer text-[14px] hover:scale-110 transition-transform p-0" 
@@ -1511,7 +1526,7 @@ function AppContent() {
                                     const hasHtml = /<[a-z][\s\S]*>/i.test(strVal);
                                     return (
                                       <React.Fragment key={i}>
-                                        {hasHtml ? <span className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: highlightHtmlText(strVal, tokens) }} /> : <span className="whitespace-pre-wrap">{highlightText(strVal, tokens)}</span>}
+                                        {hasHtml ? <span className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: highlightHtmlText(strVal, tokens, isGhost) }} /> : <span className="whitespace-pre-wrap">{highlightText(strVal, tokens, isGhost)}</span>}
                                         <br/>
                                       </React.Fragment>
                                     );
@@ -1525,7 +1540,7 @@ function AppContent() {
 
                             return (
                               <td key={col.key} {...commonProps} className={`p-1.5 border-r-[length:medium] border-b-[length:medium] border-[#e0e0e0] ${hoverClass} overflow-hidden whitespace-pre-wrap`}>
-                                {hasHtmlRaw ? <span dangerouslySetInnerHTML={{ __html: highlightHtmlText(strRawVal, tokens) }} /> : highlightText(rawVal, tokens)}
+                                {hasHtmlRaw ? <span dangerouslySetInnerHTML={{ __html: highlightHtmlText(strRawVal, tokens, isGhost) }} /> : highlightText(rawVal, tokens, isGhost)}
                               </td>
                             );
                           })}
@@ -1558,7 +1573,12 @@ function AppContent() {
           Viewing Secondary Data: {activeConfig.secondarySearchPage}
         </div>
       )}
-      {renderTable(displayConfig, displayRows, displayTokens, isSecondaryActive)}
+      {(() => {
+        const isGhostActive = displayTokens.length === 0 && (isSecondaryActive ? ghostSecTokens.length > 0 : ghostPrimTokens.length > 0);
+        const finalTokens = displayTokens.length > 0 ? displayTokens : (isSecondaryActive ? ghostSecTokens : ghostPrimTokens);
+        const originalRows = isSecondaryActive ? (state.pageRows[activeConfig.secondarySearchPage!] || []) : activeRows;
+        return renderTable(displayConfig, displayRows, finalTokens, isSecondaryActive, originalRows, isGhostActive);
+      })()}
     </div>
   );
 
